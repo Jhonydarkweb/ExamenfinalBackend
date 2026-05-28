@@ -1,4 +1,4 @@
-﻿using HackerRank1.Entities;
+using HackerRank1.Entities;
 using HackerRank1.Services;
 using LibraryService.WebAPI.Data;
 using LibraryService.WebAPI.Services;
@@ -63,12 +63,26 @@ namespace LibraryService.WebAPI
             // 4. Configurar Autorizacion
             services.AddAuthorization();
 
+            // 5. Configurar CORS para el FE (Vite dev server)
+            services.AddCors(o => o.AddPolicy("Frontend", p => p
+                .WithOrigins("http://localhost:5173")
+                .AllowAnyHeader()
+                .AllowAnyMethod()));
+
 
             // Add support for Dependency Injection for internal services (BooksService and LibrariesService)
             services.AddTransient<ILibrariesService,  LibrariesService>();
             services.AddTransient<IBooksService,  BooksService>();
 
-            services.AddDbContext<LibraryContext>(options => options.UseInMemoryDatabase("librarydb"));
+            services.AddDbContextPool<LibraryContext>(options =>
+                options.UseNpgsql(Configuration.GetConnectionString("DefaultConnection"), npgsqlOptions =>
+                {
+                    npgsqlOptions.EnableRetryOnFailure(
+                        maxRetryCount: 1,
+                        maxRetryDelay: TimeSpan.FromSeconds(5),
+                        errorCodesToAdd: null);
+                }),
+                poolSize: 20);
             services.AddControllers();
 
             // Add Swagger generation
@@ -103,7 +117,15 @@ namespace LibraryService.WebAPI
 
 
 
+            using (var scope = app.ApplicationServices.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<LibraryContext>();
+                db.Database.Migrate();
+            }
+
             app.UseRouting();
+
+            app.UseCors("Frontend");
 
             // Agregar los metodos de Auth al Middleware Pipeline.
             app.UseAuthentication();
