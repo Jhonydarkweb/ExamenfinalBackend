@@ -11,6 +11,7 @@ namespace LibraryService.WebAPI.Data
 
         public DbSet<Library> Libraries { get; set; }
         public DbSet<Book> Books { get; set; }
+        public DbSet<Fraud> Fraudes { get; set; }
     }
 
     public class Book
